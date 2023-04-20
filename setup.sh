@@ -21,9 +21,10 @@ BGREEN="\033[1;32m"
 BRED="\033[1;31m"
 RESET="\033[0m"
 
-CURDIR="$(basename $0)"
-GITREP="https://github.com/saliei/XrayRealitySetup"
-LOGGER="XRAY-REALITY-SETUP"
+CURDIR="$(dirname $0)"
+GITREP="https://github.com/saliei/XrayRealityScript"
+LOGGER="XRAY-REALITY-SCRIPT"
+TEMPL_CONFIG="$CURDIR/configs/config.json"
 
 trap "DIE" SIGINT
 trap "DIE" SIGQUIT
@@ -101,11 +102,22 @@ function install_pkgs() {
 
 function xray_config() {
     #xuuid=$(xray uuid)
+    uuid="theuuid"
     #xkeys=$(xray x25519)
     #xpublic_key=$(echo $xkeys | cut -d " " -f 4)
+    public_key="xpublickey"
     #xprivate_key=$(echo $xkeys  | cut -d " " -f 6)
-    shortid=$(openssl rand -hex 8)
-    echo $shortid
+    private_key="xprivatekey"
+    #shortid=$(openssl rand -hex 4)
+    short_id="theshortid"
+
+    CONFIG="$CURDIR/config.json"
+    cp "$TEMPL_CONFIG" "$CONFIG"
+
+    cat <<< $(jq --arg public_key  $public_key  '.inbounds[1].streamSettings.realitySettings.publicKey  = $public_key'  "$CONFIG") > "$CONFIG"
+    cat <<< $(jq --arg private_key $private_key '.inbounds[1].streamSettings.realitySettings.privateKey = $private_key' "$CONFIG") > "$CONFIG"
+    cat <<< $(jq --arg short_id    $short_id    '.inbounds[1].streamSettings.realitySettings.shortIds   = [$short_id]'  "$CONFIG") > "$CONFIG"
+
 }
 
 function main() {
