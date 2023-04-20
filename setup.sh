@@ -3,12 +3,7 @@
 # A utility script to setup Xray REALITY (Vless-XTLS-uTLS-REALITY)
 #
 
-# TODO: currently Debian based, support other distros
-# TODO: optionally use X-UI platform also
-# TODO: option for new inbound configs
-# TODO: add xray-core with an update option
-# TODO: adding multiple configs for adblocking and filtering basic geoips
-# TODO: option to do kernel opts
+# TODO: adding multiple configs, e.g. adblocking and filtering certain geoips
 
 BLACK="\033[0;30m"
 RED="\033[0;31m"
@@ -37,6 +32,11 @@ trap "DIE" SIGINT
 trap "DIE" SIGQUIT
 trap "DIE" SIGQUIT
 
+function DIE() {
+    echo "the die function"
+    exit 1
+}
+
 function LOG() {
     CURDATE="${BLUE}$(date +'%Y-%m-%d %T')${RESET}"
 
@@ -44,53 +44,56 @@ function LOG() {
         "DEBUG")
             shift
             LOGLEVEL="${GREEN}DEBUG${RESET}"
+            LOGMSG="$1"
+            echo -e "$CURDATE $LOGGER $LOGLEVEL: $LOGMSG"
             ;;
         "INFO")
             shift
             LOGLEVEL="${CYAN} INFO${RESET}"
+            LOGMSG="$1"
+            echo -e "$CURDATE $LOGGER $LOGLEVEL: $LOGMSG"
             ;;
         "WARNING")
             shift
             LOGLEVEL="${YELLOW} WARN${RESET}"
+            LOGMSG="$1"
+            echo -e "$CURDATE $LOGGER $LOGLEVEL: $LOGMSG"
             ;;
         "ERROR")
             shift
             LOGLEVEL="${RED}ERROR${RESET}"
+            LOGMSG="$1"
+            echo -e "$CURDATE $LOGGER $LOGLEVEL: $LOGMSG"
+            DIE
             ;;
         "CRITICAL")
             shift
             LOGLEVEL="${BRED}CRITC${RESET}"
+            LOGMSG="$1"
+            echo -e "$CURDATE $LOGGER $LOGLEVEL: $LOGMSG"
+            DIE
             ;;
         *)
             LOGLEVEL="${WHITE}NOLEVEL${RESET}"
+            LOGMSG="$1"
+            echo -e "$CURDATE $LOGGER $LOGLEVEL: $LOGMSG"
             ;;
     esac
-
-    LOGMSG="$1"
-    echo -e "$CURDATE $LOGGER $LOGLEVEL: $LOGMSG"
-}
-
-function DIE() {
-    LOG CRITICAL "the die function"
-    exit 1
 }
 
 function usage_msg() {
     echo "usage"
 }
 
-function is_root() {
-    [ "$EUID" -eq 0 ] || (LOG ERROR "must be root to use the script!" && DIE)
-}
+function sanity_checks() {
+    [ "$EUID" -eq 0 ] || LOG ERROR "must have root access to run the script!"
 
-function sysctl_confs() {
-    # TODO: optional sysctl confs
-    echo "sysctl confs"
+    if ! command -v systemctl; then
+        LOG CRITICAL "systemd must be enabled as the init system!"
+    fi
 }
 
 function install_pkgs() {
-    is_root
-
     LOG INFO "updating & upgrading system"
     #apt update -y && apt upgrade -y
 
@@ -104,7 +107,6 @@ function install_pkgs() {
 
     LOG INFO "installing xray pre-release version with xray-install script as the root user"
     #bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install --beta -u root
-
 }
 
 function get_public_ip() {
@@ -190,14 +192,14 @@ function xray_start() {
     LOG DEBUG "check status on xray service"
     systemctl status xray
 
-    [ $? -ne 0 ] && (LOG CRITICAL "something went wrong when starting xray" && DIE)
+    [ $? -ne 0 ] && LOG CRITICAL "something went wrong when starting xray"
 }
 
 function gen_url() {
     declare -A vars
     xray_config vars
 
-    random_name=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 8 ; echo '')
+    random_name=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 8; echo '')
 
     LOG DEBUG "generated url"
     url="vless://${vars["uuid"]}@${vars["public_ip"]}:${vars["inbound_listen_port"]}?\
@@ -216,6 +218,7 @@ flow=${vars["flow"]}&sid=${vars["short_id"]}&fp=chrome#${vars["email"]}-$random_
 }
 
 function main() {
+    #sanity_checks
     #install_pkgs
     #xray_config
     gen_url
