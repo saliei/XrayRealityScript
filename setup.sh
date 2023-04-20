@@ -28,9 +28,7 @@ XRAY_ORIG_CONFIG="/usr/local/etc/xray/config.json"
 CMFGS="$CURDIR/camouflags.txt"
 TCP_PORT="443"
 
-trap "DIE" SIGINT
-trap "DIE" SIGQUIT
-trap "DIE" SIGQUIT
+trap "DIE" SIGHUP SIGINT SIGQUIT SIGABRT
 
 function DIE() {
     echo "the die function"
@@ -147,6 +145,7 @@ function xray_config() {
 
     public_ip=$(get_public_ip)
     confvars["public_ip"]=$public_ip
+    LOG WARNING "resolved the public ip address: $public_ip"
 
     LOG WARNING "using $TEMPL_CONFIG as the template config file"
     cp "$TEMPL_CONFIG" "$CONFIG"
@@ -186,13 +185,21 @@ function xray_config() {
 }
 
 function xray_start() {
-    LOG DEBUG "enable and start xray.service"
-    systemctl enable --now xray 
+    if [ ! systemctl is-enabled --quite xray.service ]; then
+        LOG DEBUG "enabling xray.service"
+        systemctl enable xray
+        [ $? -ne 0 ] && LOG CRITICAL "something went wrong when enabling xray.service"
+    fi
 
-    LOG DEBUG "check status on xray service"
+    if [ ! systemctl is-active --quite xray.service ]; then
+        LOG DEBUG "starting xray.service"
+        systemctl start xray
+        [ $? -ne 0 ] && LOG CRITICAL "something went wrong when starting xray.service"
+    fi
+
+    LOG DEBUG "check status of xray.service"
     systemctl status xray
-
-    [ $? -ne 0 ] && LOG CRITICAL "something went wrong when starting xray"
+    [ $? -ne 0 ] && LOG CRITICAL "something went wrong during status check of xray.service"
 }
 
 function gen_url() {
@@ -223,8 +230,6 @@ function main() {
     #xray_config
     gen_url
     #xray_start
-
-
 }
 
 main "@"
