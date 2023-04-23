@@ -10,7 +10,7 @@ and modify for our own use cases. Also the templates in `configs` directory can 
 with `xray uuid` or `cat /proc/sys/kernel/random/uuid`, then create the X25519 private, public key pair, with `xray x25519` and use a short id generated 
 with `openssl rand -hex 4`, and populate the template configurations. The `xray-core` must be `v1.8.0` or higher.
 
-```bash
+```
 Usage: ./reality.sh {init (Default) | config [--url (Default) | --qrencode] | update | --help | -h}
 
 init:   Default, install, update required packages, generate a config, and start xray
