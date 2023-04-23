@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 #
-# A convenience script for generating xray reality config
-#
+# A convenient script for generating and starting VLESS-XTLS-uTLS-REALITY configs.
 
 LOGGER="XRAY-REALITY-SCRIPT"
 
@@ -17,6 +16,7 @@ BGREEN="\033[1;32m"
 BRED="\033[1;31m"
 RESET="\033[0m"
 
+SCRIPT="$0"
 CURDIR="$(dirname $0)"
 XRAY_ORIG_CONFIG="/usr/local/etc/xray/config.json"
 TEMPL_CONFIG="$CURDIR/configs/config.json"
@@ -27,7 +27,10 @@ URL_FILE="$CURDIR/url.txt"
 trap "DIE" SIGHUP SIGINT SIGQUIT SIGABRT
 
 function DIE() {
-    echo "The script is going to die."
+    CURDATE="${BLUE}$(date +'%Y-%m-%d %T')${RESET}"
+    LOGLEVEL="${BRED}CRITICAL${RESET}"
+    LOGMSG="the script is exiting"
+    echo -e "$CURDATE $LOGGER $LOGLEVEL: $LOGMSG"
     sleep 1
     exit 1
 }
@@ -38,25 +41,25 @@ function LOG() {
     case $1 in
         "DEBUG")
             shift
-            LOGLEVEL="${GREEN}DEBUG${RESET}"
+            LOGLEVEL="${GREEN}  DEBUG${RESET}"
             LOGMSG="$1"
             echo -e "$CURDATE $LOGGER $LOGLEVEL: $LOGMSG"
             ;;
         "INFO")
             shift
-            LOGLEVEL="${CYAN} INFO${RESET}"
+            LOGLEVEL="${CYAN}   INFO${RESET}"
             LOGMSG="$1"
             echo -e "$CURDATE $LOGGER $LOGLEVEL: $LOGMSG"
             ;;
         "WARNING")
             shift
-            LOGLEVEL="${YELLOW} WARNING${RESET}"
+            LOGLEVEL="${YELLOW}WARNING${RESET}"
             LOGMSG="$1"
             echo -e "$CURDATE $LOGGER $LOGLEVEL: $LOGMSG"
             ;;
         "ERROR")
             shift
-            LOGLEVEL="${RED}ERROR${RESET}"
+            LOGLEVEL="${RED}  ERROR${RESET}"
             LOGMSG="$1"
             echo -e "$CURDATE $LOGGER $LOGLEVEL: $LOGMSG"
             DIE
@@ -77,7 +80,15 @@ function LOG() {
 }
 
 function usage_msg() {
-    echo "usage message"
+    echo "Usage: $SCRIPT {init (Default) | config [--url (Default) | --qrencode] | update | --help | -h}"
+    echo ""
+    echo "init:   Default, install, update required packages, generate a config, and start xray"
+    echo "config [--url | --qrencode]: generate a new config based on a template config"
+    echo "        --url: print to terminal the VLESS url"
+    echo "        --qrencode: print the url and also the QR encoded version to terminal"
+    echo "update: update the required packages, including xray-core"
+    echo "--help | -h: print this help message"
+    echo ""
 }
 
 function sanity_checks() {
@@ -150,7 +161,7 @@ function xray_new_config() {
     LOG INFO "setting name of the profile: ${name}"
 
     LOG DEBUG "using template config file: ${TEMPL_CONFIG}"
-    cp "$TEMPLE_CONFIG" "$CONFIG"
+    cp "$TEMPL_CONFIG" "$CONFIG"
 
     LOG DEBUG "populating config.json file"
     cat <<< $(jq --arg uuid  $uuid '.inbounds[1].settings.clients[0].id = $uuid' "$CONFIG") > "$CONFIG"
@@ -160,12 +171,13 @@ function xray_new_config() {
 
 
     case "$1" in
-        "")
+        "--url" | "")
             LOG INFO "generating url"
             url="vless://$uuid@$public_ip:$inbound_port?type=$protocol_type&security=$security&sni=$cmfgsite&pbk=$public_key&flow=$flow&sid=$short_id&fp=$fingerprint#$name"
             echo $url
             LOG INFO "saving url to: ${URL_FILE}"
             echo $url > ${URL_FILE}
+            copy_config
             ;;
         "--qrencode")
             LOG INFO "generating url"
@@ -176,6 +188,7 @@ function xray_new_config() {
 
             LOG DEBUG "generating qr encoding of the url"
             qrencode -t ANSIUTF8 $url
+            copy_config
             ;;
         *)
             usage_msg
@@ -218,7 +231,7 @@ function xray_run() {
 
 function main() {
     case "$1" in
-        "firstime" | "")
+        "init" | "")
             shift
             sanity_checks
             install_pkgs
@@ -228,6 +241,7 @@ function main() {
         "config")
             shift
             xray_new_config "$@"
+            xray_run
             ;;
         "update")
             shift
