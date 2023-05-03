@@ -92,7 +92,6 @@ function usage_msg() {
 }
 
 function sanity_checks() {
-    
     LOG INFO "checking system requirements"
     [ "$EUID" -eq 0 ] || LOG ERROR "must have root access to run the script!"
     if ! command -v systemctl &>/dev/null; then
